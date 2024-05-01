@@ -1,0 +1,13 @@
+{
+  "title": "An added NOT NULL default is visible on old rows",
+  "setup": ["CREATE TABLE tasks (id INTEGER PRIMARY KEY);", "INSERT INTO tasks VALUES (8);"],
+  "migration": [
+    "ALTER TABLE tasks ADD COLUMN state TEXT NOT NULL DEFAULT 'open';",
+    "CREATE TABLE probe (ok INTEGER CHECK (ok = 1));",
+    "INSERT INTO probe SELECT count(*) FROM tasks WHERE id = 8 AND state = 'open';",
+    "DROP TABLE probe;"
+  ],
+  "expect": {"changes": [
+    ["changed", "table", "tasks", {"after": {"sql_contains": "state TEXT NOT NULL DEFAULT 'open'"}}]
+  ]}
+}
