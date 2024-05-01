@@ -1,0 +1,13 @@
+{
+  "title": "An added nullable column is NULL on existing rows",
+  "setup": ["CREATE TABLE tasks (id INTEGER PRIMARY KEY);", "INSERT INTO tasks VALUES (7);"],
+  "migration": [
+    "ALTER TABLE tasks ADD COLUMN due TEXT;",
+    "CREATE TABLE probe (ok INTEGER CHECK (ok = 1));",
+    "INSERT INTO probe SELECT count(*) FROM tasks WHERE id = 7 AND due IS NULL;",
+    "DROP TABLE probe;"
+  ],
+  "expect": {"changes": [
+    ["changed", "table", "tasks", {"before": {"sql": "CREATE TABLE tasks (id INTEGER PRIMARY KEY)"}, "after": {"sql": "CREATE TABLE tasks (id INTEGER PRIMARY KEY, due TEXT)"}}]
+  ]}
+}

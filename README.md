@@ -126,3 +126,14 @@ python -m pytest -q
 ```
 
 CI runs these checks for pushes and pull requests on Python 3.11 and 3.14.
+
+### Regression vectors
+
+`tests/regression_vectors/` contains standalone JSON cases for column changes, dependent
+views and triggers, index metadata, integrity and foreign-key checks, and transaction
+boundaries. Each case seeds a small synthetic database, calls the public Python preview API,
+and checks the report against hand-written expectations. The harness also verifies that the
+source file is byte-for-byte unchanged and that no sidecar files remain.
+
+Run the corpus with `python -m pytest -q tests/test_regression_vectors.py`; use `-k` with a
+filename slug to select a single case.
