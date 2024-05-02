@@ -1,0 +1,8 @@
+{
+  "title": "Drop a quoted middle column and retain column order",
+  "setup": ["CREATE TABLE notes (id INTEGER, \"select\" TEXT, body TEXT);", "INSERT INTO notes VALUES (1, 'old', 'kept');"],
+  "migration": ["ALTER TABLE notes DROP COLUMN \"select\";"],
+  "expect": {"changes": [
+    ["changed", "table", "notes", {"before": {"sql_contains": "\"select\" TEXT"}, "after": {"sql": "CREATE TABLE notes (id INTEGER, body TEXT)"}}]
+  ]}
+}
