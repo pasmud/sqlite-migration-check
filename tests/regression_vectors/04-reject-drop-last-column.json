@@ -1,0 +1,6 @@
+{
+  "title": "Dropping the only column is a migration error",
+  "setup": ["CREATE TABLE notes (body TEXT);"],
+  "migration": ["ALTER TABLE notes DROP COLUMN body;"],
+  "expect": {"error": ["migration", "no other columns exist"]}
+}
