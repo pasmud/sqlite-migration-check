@@ -1,0 +1,6 @@
+{
+  "title": "ADD REFERENCES rejects a non-NULL default even if it exists",
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);", "INSERT INTO teams VALUES (1);", "CREATE TABLE players (name TEXT);", "INSERT INTO players VALUES ('Ada');"],
+  "migration": ["ALTER TABLE players ADD COLUMN team INTEGER DEFAULT 1 REFERENCES teams(id);"],
+  "expect": {"error": ["migration", "REFERENCES column with non-NULL default value"]}
+}
