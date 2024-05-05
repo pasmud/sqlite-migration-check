@@ -1,0 +1,8 @@
+{
+  "title": "An added reference can leave existing children unassigned",
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);", "CREATE TABLE players (name TEXT);", "INSERT INTO players VALUES ('Ada');"],
+  "migration": ["ALTER TABLE players ADD COLUMN team INTEGER REFERENCES teams(id);"],
+  "expect": {"changes": [
+    ["changed", "table", "players", {"after": {"sql_contains": "team INTEGER REFERENCES teams(id)"}}]
+  ]}
+}
