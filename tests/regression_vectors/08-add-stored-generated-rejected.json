@@ -1,0 +1,6 @@
+{
+  "title": "A populated table cannot gain a STORED column via ALTER",
+  "setup": ["CREATE TABLE sales (quantity INTEGER);", "INSERT INTO sales VALUES (3);"],
+  "migration": ["ALTER TABLE sales ADD COLUMN doubled INTEGER AS (quantity * 2) STORED;"],
+  "expect": {"error": ["migration", "cannot add a STORED column"]}
+}
