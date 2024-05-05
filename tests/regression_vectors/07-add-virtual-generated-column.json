@@ -1,0 +1,13 @@
+{
+  "title": "An added virtual generated column computes from old data",
+  "setup": ["CREATE TABLE sales (quantity INTEGER, price INTEGER);", "INSERT INTO sales VALUES (3, 4);"],
+  "migration": [
+    "ALTER TABLE sales ADD COLUMN total INTEGER GENERATED ALWAYS AS (quantity * price) VIRTUAL;",
+    "CREATE TABLE probe (ok INTEGER CHECK (ok = 1));",
+    "INSERT INTO probe SELECT count(*) FROM sales WHERE total = 12;",
+    "DROP TABLE probe;"
+  ],
+  "expect": {"changes": [
+    ["changed", "table", "sales", {"after": {"sql_contains": "total INTEGER GENERATED ALWAYS AS (quantity * price) VIRTUAL"}}]
+  ]}
+}
