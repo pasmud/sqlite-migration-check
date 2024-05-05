@@ -1,0 +1,6 @@
+{
+  "title": "Existing rows prevent adding NOT NULL without a default",
+  "setup": ["CREATE TABLE notes (body TEXT);", "INSERT INTO notes VALUES ('draft');"],
+  "migration": ["ALTER TABLE notes ADD COLUMN owner TEXT NOT NULL;"],
+  "expect": {"error": ["migration", "NOT NULL column with default value NULL"]}
+}
