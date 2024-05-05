@@ -1,0 +1,6 @@
+{
+  "title": "A column used in an index key cannot be dropped",
+  "setup": ["CREATE TABLE notes (body TEXT, tag TEXT);", "CREATE INDEX by_tag ON notes(tag);"],
+  "migration": ["ALTER TABLE notes DROP COLUMN tag;"],
+  "expect": {"error": ["migration", "index by_tag"]}
+}
