@@ -1,0 +1,16 @@
+{
+  "title": "Renaming a column updates its view and trigger references",
+  "include_views_triggers": true,
+  "setup": [
+    "CREATE TABLE notes (body TEXT);",
+    "CREATE TABLE audit (value TEXT);",
+    "CREATE VIEW visible AS SELECT body FROM notes;",
+    "CREATE TRIGGER capture AFTER UPDATE OF body ON notes BEGIN INSERT INTO audit VALUES (NEW.body); END;"
+  ],
+  "migration": ["ALTER TABLE notes RENAME COLUMN body TO message;"],
+  "expect": {"changes": [
+    ["changed", "table", "notes", {"after": {"sql_contains": "message TEXT"}}],
+    ["changed", "view", "visible", {"before": {"sql_contains": "SELECT body"}, "after": {"sql_contains": "SELECT message"}}],
+    ["changed", "trigger", "capture", {"before": {"sql_contains": "NEW.body"}, "after": {"table": "notes", "sql_contains": "NEW.message"}}]
+  ]}
+}
