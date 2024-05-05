@@ -1,0 +1,6 @@
+{
+  "title": "A table-level CHECK prevents dropping its input column",
+  "setup": ["CREATE TABLE spans (lo INTEGER, hi INTEGER, CHECK (lo <= hi));", "INSERT INTO spans VALUES (2, 4);"],
+  "migration": ["ALTER TABLE spans DROP COLUMN hi;"],
+  "expect": {"error": ["migration", "no such column: hi"]}
+}
