@@ -1,0 +1,8 @@
+{
+  "title": "ADD COLUMN validates a passing CHECK on old rows",
+  "setup": ["CREATE TABLE scores (points INTEGER);", "INSERT INTO scores VALUES (5), (9);"],
+  "migration": ["ALTER TABLE scores ADD COLUMN bonus INTEGER DEFAULT 0 CHECK (points + bonus <= 10);"],
+  "expect": {"changes": [
+    ["changed", "table", "scores", {"after": {"sql_contains": "bonus INTEGER DEFAULT 0 CHECK (points + bonus <= 10)"}}]
+  ]}
+}
