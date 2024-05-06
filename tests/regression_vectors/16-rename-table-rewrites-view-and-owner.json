@@ -1,0 +1,12 @@
+{
+  "title": "Table rename updates the view reference and trigger owner",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE draft (id INTEGER);", "CREATE VIEW listing AS SELECT id FROM draft;", "CREATE TRIGGER observe AFTER DELETE ON draft BEGIN SELECT OLD.id; END;"],
+  "migration": ["ALTER TABLE draft RENAME TO published;"],
+  "expect": {"changes": [
+    ["removed", "table", "draft", {}],
+    ["added", "table", "published", {"after": {"sql_contains": "(id INTEGER)"}}],
+    ["changed", "view", "listing", {"before": {"sql_contains": "FROM draft"}, "after": {"sql_contains": "FROM \"published\""}}],
+    ["changed", "trigger", "observe", {"before": {"table": "draft"}, "after": {"table": "published", "sql_contains": "OLD.id"}}]
+  ]}
+}
