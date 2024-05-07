@@ -1,0 +1,10 @@
+{
+  "title": "Dropping a view implicitly removes its INSTEAD OF trigger",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE notes (body TEXT);", "CREATE VIEW inbox AS SELECT body FROM notes;", "CREATE TRIGGER deliver INSTEAD OF INSERT ON inbox BEGIN INSERT INTO notes VALUES (NEW.body); END;"],
+  "migration": ["DROP VIEW inbox;"],
+  "expect": {"changes": [
+    ["removed", "view", "inbox", {"before": {"sql_contains": "SELECT body FROM notes"}}],
+    ["removed", "trigger", "deliver", {"before": {"table": "inbox", "sql_contains": "INSTEAD OF INSERT"}}]
+  ]}
+}
