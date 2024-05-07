@@ -1,0 +1,9 @@
+{
+  "title": "An unqueried view can reference a not-yet-created table",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE notes (body TEXT);"],
+  "migration": ["CREATE VIEW planned AS SELECT id FROM future_cards;"],
+  "expect": {"changes": [
+    ["added", "view", "planned", {"after": {"sql": "CREATE VIEW planned AS SELECT id FROM future_cards"}}]
+  ]}
+}
