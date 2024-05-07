@@ -1,0 +1,10 @@
+{
+  "title": "Dropping a base table removes its trigger but leaves its view",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE notes (body TEXT);", "CREATE VIEW inbox AS SELECT body FROM notes;", "CREATE TRIGGER audit AFTER INSERT ON notes BEGIN SELECT NEW.body; END;"],
+  "migration": ["DROP TABLE notes;"],
+  "expect": {"changes": [
+    ["removed", "table", "notes", {"before": {"sql_contains": "body TEXT"}}],
+    ["removed", "trigger", "audit", {"before": {"table": "notes"}}]
+  ]}
+}
