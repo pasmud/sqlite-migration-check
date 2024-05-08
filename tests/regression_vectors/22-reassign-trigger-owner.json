@@ -1,0 +1,9 @@
+{
+  "title": "Reusing a trigger name on another table is a change",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE intake (value TEXT);", "CREATE TABLE archive (value TEXT);", "CREATE TRIGGER capture AFTER DELETE ON intake BEGIN SELECT OLD.value; END;"],
+  "migration": ["DROP TRIGGER capture;", "CREATE TRIGGER capture AFTER DELETE ON archive BEGIN SELECT OLD.value; END;"],
+  "expect": {"changes": [
+    ["changed", "trigger", "capture", {"before": {"table": "intake"}, "after": {"table": "archive", "sql_contains": "ON archive"}}]
+  ]}
+}
