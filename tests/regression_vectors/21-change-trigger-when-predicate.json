@@ -1,0 +1,9 @@
+{
+  "title": "A trigger predicate change is reported with the same owner",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE notes (body TEXT);", "CREATE TRIGGER flag AFTER INSERT ON notes WHEN NEW.body IS NULL BEGIN SELECT 1; END;"],
+  "migration": ["DROP TRIGGER flag;", "CREATE TRIGGER flag AFTER INSERT ON notes WHEN NEW.body = '' BEGIN SELECT 1; END;"],
+  "expect": {"changes": [
+    ["changed", "trigger", "flag", {"before": {"table": "notes", "sql_contains": "WHEN NEW.body IS NULL"}, "after": {"table": "notes", "sql_contains": "WHEN NEW.body = ''"}}]
+  ]}
+}
