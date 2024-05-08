@@ -1,4 +1,4 @@
-"""Metadata snapshots of main-schema tables and indexes."""
+"""Metadata snapshots of main-schema objects."""
 
 import sqlite3
 from dataclasses import dataclass
@@ -37,9 +37,10 @@ class SchemaChange:
 
 
 Snapshot = dict[tuple[str, str], SchemaObject]
+_KIND_ORDER = {kind: order for order, kind in enumerate(("table", "index", "view", "trigger"))}
 
 
-def snapshot(db: sqlite3.Connection) -> Snapshot:
+def snapshot(db: sqlite3.Connection, *, include_views_triggers: bool = False) -> Snapshot:
     definitions = dict(db.execute("SELECT name, sql FROM main.sqlite_schema WHERE type = 'index'"))
     objects = {}
     for table, sql in db.execute("""
@@ -61,12 +62,18 @@ def snapshot(db: sqlite3.Connection) -> Snapshot:
             )
             details = IndexDetails(bool(unique), origin, bool(partial), terms)
             objects["index", name] = SchemaObject("index", name, table, definitions.get(name), details)
+    if include_views_triggers:
+        for kind, name, table, sql in db.execute("""
+            SELECT type, name, tbl_name, sql FROM main.sqlite_schema
+            WHERE type IN ('view', 'trigger') AND substr(name, 1, 7) <> 'sqlite_'
+        """):
+            objects[kind, name] = SchemaObject(kind, name, table, sql)
     return objects
 
 
 def diff(before: Snapshot, after: Snapshot) -> tuple[SchemaChange, ...]:
     changes = []
-    for key in sorted(before.keys() | after.keys(), key=lambda key: (key[0] != "table", key[1])):
+    for key in sorted(before.keys() | after.keys(), key=lambda key: (_KIND_ORDER[key[0]], key[1])):
         old, new = before.get(key), after.get(key)
         if old != new:
             action = "added" if old is None else "removed" if new is None else "changed"

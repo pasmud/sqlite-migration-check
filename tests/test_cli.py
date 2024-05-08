@@ -94,6 +94,27 @@ def test_text_preview_and_invalid_timeout(inputs):
     assert result.returncode == 2 and "finite and positive" in result.stderr
 
 
+def test_view_and_trigger_review_is_opt_in(inputs):
+    _, migration = inputs
+    migration.write_text("""
+        CREATE VIEW visible_notes AS SELECT body FROM notes;
+        CREATE TRIGGER add_note INSTEAD OF INSERT ON visible_notes
+            BEGIN INSERT INTO notes VALUES (NEW.body); END;
+    """, encoding="utf-8")
+    default = invoke(inputs, "--format", "json")
+    assert default.returncode == 0 and json.loads(default.stdout)["changes"] == []
+
+    expanded = invoke(inputs, "--format", "json", "--include-views-triggers")
+    assert expanded.returncode == 0 and expanded.stderr == ""
+    view, trigger = [change["after"] for change in json.loads(expanded.stdout)["changes"]]
+    assert view["kind"] == "view" and view["name"] == "visible_notes"
+    assert trigger["kind"] == "trigger" and trigger["table"] == "visible_notes"
+
+    text = invoke(inputs, "--include-views-triggers")
+    assert text.returncode == 0 and text.stderr == ""
+    assert 'ADDED trigger "add_note" on "visible_notes"' in text.stdout
+
+
 def test_documented_examples_work_against_same_source(tmp_path):
     examples = Path(__file__).resolve().parents[1] / "examples"
     database = tmp_path / "demo.sqlite"

@@ -28,21 +28,25 @@ in an activated virtual environment, then use it in place of `python -m sqlite_m
 
 ```text
 sqlite-migration-check DATABASE MIGRATION.sql [--format {text,json}] [--timeout SECONDS]
+                                             [--include-views-triggers]
 ```
 
 - `DATABASE` must be an existing local regular file. `MIGRATION.sql` must be an explicitly
   supplied local regular file containing non-empty UTF-8 SQL (an optional BOM is accepted).
   Use scripts you wrote or reviewed. Scripts may use transactions or savepoints but must
   finish with no transaction open. Foreign-key enforcement is on during the script.
-- The diff compares the **final** main-schema tables and indexes by name, with tables
-  before indexes and names sorted within each group. It shows SQLite's stored DDL and, for
-  indexes, key terms, collation, ordering, uniqueness, origin, and whether the index is
-  partial. For an implicit index, `sql` is `null`; `origin` is SQLite's `c` (explicit index),
-  `u` (unique constraint), or `pk` (primary key). A rename appears as a removal and addition;
-  a changed DDL string is reported even if it has the same meaning.
-- Row changes, views, triggers, SQLite internal tables, and virtual-table shadow tables are
-  not diffed. The tool still executes data changes and runs `integrity_check` and
-  `foreign_key_check` on the final copy. No schema changes does not imply no data changes.
+- By default, the diff compares the **final** main-schema tables and indexes by name. Use
+  `--include-views-triggers` to also review views and triggers (including triggers on views).
+  The order is tables, indexes, views, then triggers, sorted by name within each group.
+  Reports show SQLite's stored DDL and, for indexes, key terms, collation, ordering, uniqueness,
+  origin, and whether the index is partial. For an implicit index, `sql` is `null`; `origin`
+  is SQLite's `c` (explicit index), `u` (unique constraint), or `pk` (primary key). For triggers,
+  the `table` field identifies the target table or view. A rename appears as a removal and
+  addition; a changed DDL string is reported even if it has the same meaning.
+- Row changes, SQLite internal tables, and virtual-table shadow tables are not diffed. The
+  tool still executes data changes and runs `integrity_check` and `foreign_key_check` on
+  the final copy. An empty diff does not imply no data changes. View/trigger review compares
+  definitions; it does not query views or fire triggers beyond what the migration does.
 
 | Exit | JSON `status` | Meaning |
 | --- | --- | --- |
@@ -58,7 +62,7 @@ finding identifies the child table, rowid (`null` for `WITHOUT ROWID`), parent t
 zero-based foreign-key ID. Argument syntax errors are emitted by the CLI parser to stderr
 with exit `2`, even when JSON was requested. SQLite diagnostics may differ across SQLite versions.
 
-The same preview is available from Python:
+The same preview is available from Python, with optional `include_views_triggers=True`:
 
 ```python
 from sqlite_migration_check import PreviewError, PreviewLimits, preview

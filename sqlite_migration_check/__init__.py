@@ -98,7 +98,13 @@ def _check_source(path: Path) -> None:
         raise PreviewError("source", "WAL mode requires existing -wal and -shm sidecars")
 
 
-def preview(source: str | Path, sql: str, *, limits: PreviewLimits = PreviewLimits()) -> PreviewResult:
+def preview(
+    source: str | Path,
+    sql: str,
+    *,
+    limits: PreviewLimits = PreviewLimits(),
+    include_views_triggers: bool = False,
+) -> PreviewResult:
     """Back up an existing SQLite file, apply SQL to the copy, and check it."""
     stage = "input"
     deadline = monotonic() + limits.timeout_seconds
@@ -150,7 +156,7 @@ def preview(source: str | Path, sql: str, *, limits: PreviewLimits = PreviewLimi
             scratch.execute("PRAGMA foreign_keys = ON")
             scratch.setlimit(sqlite3.SQLITE_LIMIT_ATTACHED, 0)
             scratch.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, 16 * 1024 * 1024)
-            before = snapshot(scratch)
+            before = snapshot(scratch, include_views_triggers=include_views_triggers)
             check_deadline()
 
             stage = "migration"
@@ -164,7 +170,7 @@ def preview(source: str | Path, sql: str, *, limits: PreviewLimits = PreviewLimi
                 raise PreviewError(stage, "migration left a transaction open")
 
             stage = "snapshot_after"
-            changes = diff(before, snapshot(scratch))
+            changes = diff(before, snapshot(scratch, include_views_triggers=include_views_triggers))
             check_deadline()
 
             stage = "checks"

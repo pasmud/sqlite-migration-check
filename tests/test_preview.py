@@ -235,6 +235,48 @@ def test_reports_final_schema_not_intermediate_or_data_changes(source):
         ROLLBACK TO tentative;
         RELEASE tentative;
         CREATE VIEW note_bodies AS SELECT body FROM notes;
-    """)
+        BEGIN;
+        CREATE TRIGGER discarded_insert AFTER INSERT ON notes BEGIN SELECT 1; END;
+        ROLLBACK;
+    """, include_views_triggers=True)
     assert result.ok
-    assert result.changes == ()
+    assert [(change.action, change.after.name) for change in result.changes] == [
+        ("added", "note_bodies"),
+    ]
+
+
+def test_reviews_view_and_trigger_definitions_in_schema_order(source):
+    with closing(sqlite3.connect(source)) as db:
+        db.executescript("""
+            CREATE VIEW recent_notes AS SELECT body FROM notes;
+            CREATE VIEW old_notes AS SELECT body FROM notes;
+            CREATE TRIGGER old_insert AFTER INSERT ON notes BEGIN SELECT 1; END;
+            CREATE TRIGGER trim_insert AFTER INSERT ON notes BEGIN SELECT trim(NEW.body); END;
+        """)
+    result = preview(source, """
+        CREATE VIEW all_notes AS SELECT body FROM notes;
+        DROP VIEW recent_notes;
+        CREATE VIEW recent_notes AS SELECT body FROM notes WHERE body <> '';
+        DROP VIEW old_notes;
+        DROP TRIGGER old_insert;
+        DROP TRIGGER trim_insert;
+        CREATE TRIGGER trim_insert AFTER INSERT ON notes BEGIN SELECT ltrim(NEW.body); END;
+        CREATE TRIGGER add_note INSTEAD OF INSERT ON all_notes
+            BEGIN INSERT INTO notes VALUES (NEW.body); END;
+        CREATE INDEX z_notes ON notes(body);
+        CREATE TABLE z_archive (body TEXT);
+    """, include_views_triggers=True)
+    assert result.ok
+    objects = [(item.action, item.after or item.before) for item in result.changes]
+    assert [(action, obj.kind, obj.name) for action, obj in objects] == [
+        ("added", "table", "z_archive"), ("added", "index", "z_notes"),
+        ("added", "view", "all_notes"), ("removed", "view", "old_notes"),
+        ("changed", "view", "recent_notes"), ("added", "trigger", "add_note"),
+        ("removed", "trigger", "old_insert"), ("changed", "trigger", "trim_insert"),
+    ]
+    added_trigger = result.changes[5].after
+    assert added_trigger.table == "all_notes" and added_trigger.index is None
+    assert "INSTEAD OF INSERT" in added_trigger.sql
+    changed_trigger = result.changes[-1]
+    assert "SELECT trim(" in changed_trigger.before.sql
+    assert "SELECT ltrim(" in changed_trigger.after.sql

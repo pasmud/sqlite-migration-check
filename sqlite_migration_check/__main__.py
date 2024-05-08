@@ -31,13 +31,14 @@ def _describe(obj: SchemaObject) -> str:
     return json.dumps({"sql": obj.sql, **asdict(obj.index)}, sort_keys=True)
 
 
-def _print_text(result: PreviewResult) -> None:
+def _print_text(result: PreviewResult, *, include_views_triggers: bool) -> None:
     if not result.changes:
-        print("No table or index changes.")
+        scope = "table, index, view, or trigger" if include_views_triggers else "table or index"
+        print(f"No {scope} changes.")
     for change in result.changes:
         obj = change.after or change.before
         assert obj is not None
-        parent = f" on {json.dumps(obj.table)}" if obj.kind == "index" else ""
+        parent = f" on {json.dumps(obj.table)}" if obj.kind in ("index", "trigger") else ""
         print(f"{change.action.upper()} {obj.kind} {json.dumps(obj.name)}{parent}")
         if change.before is not None:
             print(f"  before: {_describe(change.before)}")
@@ -61,7 +62,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("migration", type=Path, metavar="MIGRATION.sql", help="trusted UTF-8 script")
     parser.add_argument("--format", choices=("text", "json"), default="text", help="report format")
     parser.add_argument("--timeout", type=float, default=PreviewLimits().timeout_seconds,
-                        metavar="SECONDS", help="preview time limit (default: %(default)s)")
+                         metavar="SECONDS", help="preview time limit (default: %(default)s)")
+    parser.add_argument("--include-views-triggers", action="store_true",
+                         help="also compare main-schema views and triggers")
     args = parser.parse_args(argv)
 
     try:
@@ -69,7 +72,10 @@ def main(argv: list[str] | None = None) -> int:
             limits = PreviewLimits(timeout_seconds=args.timeout)
         except ValueError as exc:
             raise PreviewError("input", str(exc)) from exc
-        result = preview(args.source, _read_sql(args.migration, limits.max_sql_bytes), limits=limits)
+        result = preview(
+            args.source, _read_sql(args.migration, limits.max_sql_bytes), limits=limits,
+            include_views_triggers=args.include_views_triggers,
+        )
     except PreviewError as exc:
         if args.format == "json":
             print(json.dumps({
@@ -92,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
             "error": None,
         }, sort_keys=True))
     else:
-        _print_text(result)
+        _print_text(result, include_views_triggers=args.include_views_triggers)
     return 0 if result.ok else 1
 
 
