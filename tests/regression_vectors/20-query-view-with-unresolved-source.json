@@ -1,0 +1,7 @@
+{
+  "title": "Querying a dangling view fails during the migration",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE notes (body TEXT);", "CREATE VIEW planned AS SELECT id FROM future_cards;"],
+  "migration": ["ALTER TABLE notes ADD COLUMN pinned INTEGER;", "SELECT id FROM planned;"],
+  "expect": {"error": ["migration", "no such table: main.future_cards"]}
+}
