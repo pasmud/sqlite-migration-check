@@ -1,0 +1,17 @@
+{
+  "title": "A view INSERT runs its trigger and writes a valid base row",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE notes (body TEXT CHECK (body <> ''));"],
+  "migration": [
+    "CREATE VIEW inbox (message) AS SELECT body FROM notes;",
+    "CREATE TRIGGER deliver INSTEAD OF INSERT ON inbox BEGIN INSERT INTO notes VALUES (trim(NEW.message)); END;",
+    "INSERT INTO inbox VALUES ('  draft  ');",
+    "CREATE TABLE probe (ok INTEGER CHECK (ok = 1));",
+    "INSERT INTO probe SELECT count(*) FROM notes WHERE body = 'draft';",
+    "DROP TABLE probe;"
+  ],
+  "expect": {"changes": [
+    ["added", "view", "inbox", {"after": {"sql_contains": "inbox (message) AS SELECT body"}}],
+    ["added", "trigger", "deliver", {"after": {"table": "inbox", "sql_contains": "trim(NEW.message)"}}]
+  ]}
+}
