@@ -1,0 +1,16 @@
+{
+  "title": "An UPDATE OF trigger observes only its named column",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE tasks (state TEXT, rank INTEGER);", "CREATE TABLE log (state TEXT);", "INSERT INTO tasks VALUES ('open', 0);"],
+  "migration": [
+    "CREATE TRIGGER track AFTER UPDATE OF state ON tasks BEGIN INSERT INTO log VALUES (NEW.state); END;",
+    "UPDATE tasks SET rank = 1;",
+    "UPDATE tasks SET state = 'closed';",
+    "CREATE TABLE probe (ok INTEGER CHECK (ok = 1));",
+    "INSERT INTO probe SELECT count(*) = 1 AND min(state) = 'closed' FROM log;",
+    "DROP TABLE probe;"
+  ],
+  "expect": {"changes": [
+    ["added", "trigger", "track", {"after": {"table": "tasks", "sql_contains": "AFTER UPDATE OF state"}}]
+  ]}
+}
