@@ -1,0 +1,11 @@
+{
+  "title": "A table and trigger with the same name are separate changes",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE events (id INTEGER);"],
+  "migration": ["CREATE TRIGGER events AFTER INSERT ON events BEGIN SELECT NEW.id; END;", "CREATE VIEW timeline AS SELECT id FROM events;", "ALTER TABLE events ADD COLUMN label TEXT;"],
+  "expect": {"changes": [
+    ["changed", "table", "events", {"after": {"sql_contains": "label TEXT"}}],
+    ["added", "view", "timeline", {"after": {"sql_contains": "FROM events"}}],
+    ["added", "trigger", "events", {"after": {"table": "events", "sql_contains": "AFTER INSERT"}}]
+  ]}
+}
