@@ -1,0 +1,8 @@
+{
+  "title": "Default scope reports a column rename but not its rewritten view",
+  "setup": ["CREATE TABLE notes (body TEXT);", "CREATE VIEW inbox AS SELECT body FROM notes;"],
+  "migration": ["ALTER TABLE notes RENAME COLUMN body TO message;"],
+  "expect": {"changes": [
+    ["changed", "table", "notes", {"before": {"sql_contains": "body TEXT"}, "after": {"sql_contains": "message TEXT"}}]
+  ]}
+}
