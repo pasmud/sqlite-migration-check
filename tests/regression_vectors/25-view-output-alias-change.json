@@ -1,0 +1,9 @@
+{
+  "title": "Changing only a view output alias changes its definition",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE notes (body TEXT);", "CREATE VIEW inbox (message) AS SELECT body FROM notes;"],
+  "migration": ["DROP VIEW inbox;", "CREATE VIEW inbox (text) AS SELECT body FROM notes;"],
+  "expect": {"changes": [
+    ["changed", "view", "inbox", {"before": {"sql_contains": "inbox (message)"}, "after": {"sql_contains": "inbox (text)"}}]
+  ]}
+}
