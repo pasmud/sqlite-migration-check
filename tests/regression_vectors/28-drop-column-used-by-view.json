@@ -1,0 +1,6 @@
+{
+  "title": "A dependent view blocks column removal even in default scope",
+  "setup": ["CREATE TABLE notes (id INTEGER, body TEXT);", "CREATE VIEW inbox AS SELECT body FROM notes;"],
+  "migration": ["ALTER TABLE notes DROP COLUMN body;"],
+  "expect": {"error": ["migration", "view inbox"]}
+}
