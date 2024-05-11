@@ -1,0 +1,8 @@
+{
+  "title": "A WITHOUT ROWID secondary index omits its covering PK columns",
+  "setup": ["CREATE TABLE bins (zone TEXT, slot INTEGER, label TEXT, PRIMARY KEY (zone, slot)) WITHOUT ROWID;"],
+  "migration": ["CREATE INDEX by_label ON bins(label DESC);"],
+  "expect": {"changes": [
+    ["added", "index", "by_label", {"after": {"table": "bins", "index": {"unique": false, "origin": "c", "partial": false, "terms": [["label", false, true, "BINARY"]]}}}]
+  ]}
+}
