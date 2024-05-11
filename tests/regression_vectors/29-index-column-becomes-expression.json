@@ -1,0 +1,11 @@
+{
+  "title": "Replacing an index column with an expression changes its term",
+  "setup": ["CREATE TABLE labels (name TEXT);", "CREATE INDEX by_name ON labels(name);"],
+  "migration": ["DROP INDEX by_name;", "CREATE INDEX by_name ON labels(lower(name));"],
+  "expect": {"changes": [
+    ["changed", "index", "by_name", {
+      "before": {"table": "labels", "index": {"unique": false, "origin": "c", "partial": false, "terms": [["name", false, false, "BINARY"]]}},
+      "after": {"sql_contains": "lower(name)", "index": {"unique": false, "origin": "c", "partial": false, "terms": [[null, true, false, "BINARY"]]}}
+    }]
+  ]}
+}
