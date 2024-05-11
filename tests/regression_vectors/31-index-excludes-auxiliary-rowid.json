@@ -1,0 +1,8 @@
+{
+  "title": "A secondary index omits its auxiliary rowid from the report",
+  "setup": ["CREATE TABLE items (id INTEGER PRIMARY KEY, label TEXT);"],
+  "migration": ["CREATE INDEX by_label ON items(label);"],
+  "expect": {"changes": [
+    ["added", "index", "by_label", {"after": {"table": "items", "index": {"unique": false, "origin": "c", "partial": false, "terms": [["label", false, false, "BINARY"]]}}}]
+  ]}
+}
