@@ -3,7 +3,7 @@ from contextlib import closing
 
 import pytest
 
-from sqlite_migration_check import ForeignKeyViolation, PreviewError, preview
+from sqlite_migration_check import ForeignKeyViolation, PreviewError, PreviewLimits, preview
 
 
 @pytest.fixture
@@ -63,3 +63,99 @@ def test_existing_foreign_key_problem_is_reported(source):
     assert not result.ok
     assert result.integrity_errors == ()
     assert result.foreign_key_violations == (ForeignKeyViolation("tags", 1, "accounts", 0),)
+
+
+@pytest.mark.parametrize("statement", ["ATTACH DATABASE 'other.sqlite' AS other", "VACUUM INTO 'other.sqlite'"])
+def test_migration_cannot_create_other_database_files(source, monkeypatch, statement):
+    monkeypatch.chdir(source.parent)
+    with pytest.raises(PreviewError) as error:
+        preview(source, statement)
+    assert error.value.stage == "migration"
+    assert list(source.parent.iterdir()) == [source]
+
+
+def test_migration_cannot_disable_foreign_keys(source):
+    with pytest.raises(PreviewError, match="not authorized"):
+        preview(source, "PRAGMA foreign_keys = OFF")
+    with pytest.raises(PreviewError, match="FOREIGN KEY constraint failed"):
+        preview(source, """
+            CREATE TABLE accounts (id INTEGER PRIMARY KEY);
+            CREATE TABLE tags (account INTEGER REFERENCES accounts(id));
+            INSERT INTO tags VALUES (10);
+        """)
+
+
+@pytest.mark.parametrize("script", ["", " \n\t", "SELECT 1;\x00", b"SELECT 1;"])
+def test_rejects_invalid_script(source, script):
+    with pytest.raises(PreviewError) as error:
+        preview(source, script)
+    assert error.value.stage == "input"
+
+
+def test_sql_limit_counts_utf8_bytes(source):
+    sql = "SELECT 'é';"
+    with pytest.raises(PreviewError, match="SQL byte limit"):
+        preview(source, sql, limits=PreviewLimits(max_sql_bytes=len(sql)))
+
+
+def test_source_and_scratch_size_are_bounded(source):
+    with pytest.raises(PreviewError, match="scratch database byte limit") as error:
+        preview(source, "SELECT 1;", limits=PreviewLimits(max_db_bytes=1024))
+    assert error.value.stage == "backup"
+
+    original = source.read_bytes()
+    with pytest.raises(PreviewError, match="database or disk is full") as error:
+        preview(source, "INSERT INTO notes VALUES (zeroblob(100000));",
+                limits=PreviewLimits(max_db_bytes=len(original)))
+    assert error.value.stage == "migration"
+    assert source.read_bytes() == original
+
+
+def test_long_running_migration_is_interrupted(source):
+    with pytest.raises(PreviewError, match="time limit exceeded") as error:
+        preview(source, """
+            WITH RECURSIVE counts(n) AS (VALUES (1) UNION ALL SELECT n+1 FROM counts)
+            SELECT SUM(n) FROM counts;
+        """, limits=PreviewLimits(timeout_seconds=0.1))
+    assert error.value.stage == "migration"
+
+
+def test_check_rows_are_bounded(source):
+    with closing(sqlite3.connect(source)) as db:
+        db.executescript("""
+            CREATE TABLE accounts (id INTEGER PRIMARY KEY);
+            CREATE TABLE tags (account INTEGER REFERENCES accounts(id));
+            INSERT INTO tags VALUES (10), (20), (30);
+        """)
+    result = preview(source, "SELECT 1;", limits=PreviewLimits(max_check_rows=2))
+    assert not result.ok
+    assert result.checks_truncated
+    assert len(result.foreign_key_violations) == 2
+
+
+def test_backup_reads_committed_wal_without_changing_database_or_wal(source):
+    with closing(sqlite3.connect(source)) as db:
+        assert db.execute("PRAGMA journal_mode = WAL").fetchone() == ("wal",)
+        db.executescript("CREATE TABLE in_wal (id INTEGER); INSERT INTO in_wal VALUES (7);")
+        wal = source.with_name(source.name + "-wal")
+        original = source.read_bytes(), wal.read_bytes()
+        assert preview(source, """
+            CREATE TABLE copied (id INTEGER CHECK (id = 7));
+            INSERT INTO copied SELECT id FROM in_wal;
+        """).ok
+        assert (source.read_bytes(), wal.read_bytes()) == original
+
+
+def test_wal_with_no_sidecars_is_rejected_without_creating_them(source):
+    with closing(sqlite3.connect(source)) as db:
+        assert db.execute("PRAGMA journal_mode = WAL").fetchone() == ("wal",)
+    with pytest.raises(PreviewError, match="requires existing .* sidecars"):
+        preview(source, "SELECT 1;")
+    assert list(source.parent.iterdir()) == [source]
+
+
+def test_invalid_database_reports_backup_error(source):
+    source.write_bytes(b"fake database content" * 20)
+    with pytest.raises(PreviewError, match="not a database") as error:
+        preview(source, "SELECT 1;")
+    assert error.value.stage == "backup"
