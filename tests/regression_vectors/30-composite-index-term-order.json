@@ -1,0 +1,8 @@
+{
+  "title": "Composite index terms keep their individual sort and collation",
+  "setup": ["CREATE TABLE labels (name TEXT COLLATE NOCASE, category TEXT);"],
+  "migration": ["CREATE INDEX label_order ON labels(category COLLATE RTRIM DESC, name ASC);"],
+  "expect": {"changes": [
+    ["added", "index", "label_order", {"after": {"table": "labels", "index": {"unique": false, "origin": "c", "partial": false, "terms": [["category", false, true, "RTRIM"], ["name", false, false, "NOCASE"]]}}}]
+  ]}
+}
