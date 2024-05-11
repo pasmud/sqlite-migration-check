@@ -1,0 +1,9 @@
+{
+  "title": "Adding a UNIQUE constraint in a rebuild adds an implicit index",
+  "setup": ["CREATE TABLE bins (code TEXT);", "INSERT INTO bins VALUES ('A'), ('B');"],
+  "migration": ["CREATE TABLE next_bins (code TEXT UNIQUE);", "INSERT INTO next_bins SELECT code FROM bins;", "DROP TABLE bins;", "ALTER TABLE next_bins RENAME TO bins;"],
+  "expect": {"changes": [
+    ["changed", "table", "bins", {"after": {"sql_contains": "code TEXT UNIQUE"}}],
+    ["added", "index", "sqlite_autoindex_bins_1", {"after": {"sql": null, "table": "bins", "index": {"unique": true, "origin": "u", "partial": false, "terms": [["code", false, false, "BINARY"]]}}}]
+  ]}
+}
