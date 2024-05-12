@@ -1,0 +1,11 @@
+{
+  "title": "Changing a partial index predicate alone changes its definition",
+  "setup": ["CREATE TABLE items (label TEXT, priority INTEGER);", "CREATE INDEX urgent ON items(label) WHERE priority > 3;"],
+  "migration": ["DROP INDEX urgent;", "CREATE INDEX urgent ON items(label) WHERE priority > 5;"],
+  "expect": {"changes": [
+    ["changed", "index", "urgent", {
+      "before": {"sql_contains": "WHERE priority > 3", "index": {"unique": false, "origin": "c", "partial": true, "terms": [["label", false, false, "BINARY"]]}},
+      "after": {"sql_contains": "WHERE priority > 5", "index": {"unique": false, "origin": "c", "partial": true, "terms": [["label", false, false, "BINARY"]]}}
+    }]
+  ]}
+}
