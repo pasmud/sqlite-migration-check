@@ -1,0 +1,12 @@
+{
+  "title": "An implicit index reports reordered keys despite having no SQL",
+  "setup": ["CREATE TABLE bins (zone TEXT, slot INTEGER, UNIQUE (zone, slot));"],
+  "migration": ["DROP TABLE bins;", "CREATE TABLE bins (zone TEXT, slot INTEGER, UNIQUE (slot, zone));"],
+  "expect": {"changes": [
+    ["changed", "table", "bins", {"after": {"sql_contains": "UNIQUE (slot, zone)"}}],
+    ["changed", "index", "sqlite_autoindex_bins_1", {
+      "before": {"sql": null, "index": {"unique": true, "origin": "u", "partial": false, "terms": [["zone", false, false, "BINARY"], ["slot", false, false, "BINARY"]]}},
+      "after": {"sql": null, "index": {"unique": true, "origin": "u", "partial": false, "terms": [["slot", false, false, "BINARY"], ["zone", false, false, "BINARY"]]}}
+    }]
+  ]}
+}
