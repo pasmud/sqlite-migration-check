@@ -1,0 +1,10 @@
+{
+  "title": "An explicit index keeps its name but follows a renamed table",
+  "setup": ["CREATE TABLE incoming (code TEXT);", "CREATE INDEX by_code ON incoming(code);"],
+  "migration": ["ALTER TABLE incoming RENAME TO archive;"],
+  "expect": {"changes": [
+    ["added", "table", "archive", {}],
+    ["removed", "table", "incoming", {}],
+    ["changed", "index", "by_code", {"before": {"table": "incoming"}, "after": {"table": "archive", "sql_contains": "ON \"archive\"(code)"}}]
+  ]}
+}
