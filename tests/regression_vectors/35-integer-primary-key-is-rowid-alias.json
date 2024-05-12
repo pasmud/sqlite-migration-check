@@ -1,0 +1,8 @@
+{
+  "title": "An INTEGER PRIMARY KEY rowid alias has no separate index",
+  "setup": ["CREATE TABLE notes (body TEXT);"],
+  "migration": ["CREATE TABLE ledger (id INTEGER PRIMARY KEY, amount INTEGER);"],
+  "expect": {"changes": [
+    ["added", "table", "ledger", {"after": {"sql": "CREATE TABLE ledger (id INTEGER PRIMARY KEY, amount INTEGER)"}}]
+  ]}
+}
