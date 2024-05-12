@@ -1,0 +1,9 @@
+{
+  "title": "Inline INTEGER PRIMARY KEY DESC produces an implicit index",
+  "setup": ["CREATE TABLE notes (body TEXT);"],
+  "migration": ["CREATE TABLE ledger (id INTEGER PRIMARY KEY DESC, amount INTEGER);"],
+  "expect": {"changes": [
+    ["added", "table", "ledger", {"after": {"sql_contains": "INTEGER PRIMARY KEY DESC"}}],
+    ["added", "index", "sqlite_autoindex_ledger_1", {"after": {"sql": null, "table": "ledger", "index": {"unique": true, "origin": "pk", "partial": false, "terms": [["id", false, true, "BINARY"]]}}}]
+  ]}
+}
