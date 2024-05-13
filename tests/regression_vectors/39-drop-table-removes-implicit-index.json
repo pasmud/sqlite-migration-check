@@ -1,0 +1,9 @@
+{
+  "title": "Dropping a table removes its implicit UNIQUE index as well",
+  "setup": ["CREATE TABLE old_bins (code TEXT COLLATE NOCASE UNIQUE);"],
+  "migration": ["DROP TABLE old_bins;"],
+  "expect": {"changes": [
+    ["removed", "table", "old_bins", {}],
+    ["removed", "index", "sqlite_autoindex_old_bins_1", {"before": {"sql": null, "table": "old_bins", "index": {"unique": true, "origin": "u", "partial": false, "terms": [["code", false, false, "NOCASE"]]}}}]
+  ]}
+}
