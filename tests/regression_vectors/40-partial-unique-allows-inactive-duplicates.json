@@ -1,0 +1,8 @@
+{
+  "title": "A partial UNIQUE index excludes duplicate inactive rows",
+  "setup": ["CREATE TABLE items (code TEXT, active INTEGER);", "INSERT INTO items VALUES ('A', 0), ('A', 0), ('A', 1);"],
+  "migration": ["CREATE UNIQUE INDEX live_codes ON items(code) WHERE active = 1;"],
+  "expect": {"changes": [
+    ["added", "index", "live_codes", {"after": {"sql_contains": "WHERE active = 1", "index": {"unique": true, "origin": "c", "partial": true, "terms": [["code", false, false, "BINARY"]]}}}]
+  ]}
+}
