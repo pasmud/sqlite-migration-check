@@ -1,0 +1,6 @@
+{
+  "title": "Activating a duplicate enters the partial UNIQUE index and fails",
+  "setup": ["CREATE TABLE items (code TEXT, active INTEGER);", "INSERT INTO items VALUES ('A', 0), ('A', 1);", "CREATE UNIQUE INDEX live_codes ON items(code) WHERE active = 1;"],
+  "migration": ["UPDATE items SET active = 1 WHERE active = 0;"],
+  "expect": {"error": ["migration", "UNIQUE constraint failed: items.code"]}
+}
