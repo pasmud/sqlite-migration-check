@@ -3,7 +3,12 @@ from contextlib import closing
 
 import pytest
 
-from sqlite_migration_check import ForeignKeyViolation, PreviewError, PreviewLimits, preview
+from sqlite_migration_check import (
+    ForeignKeyViolation,
+    PreviewError,
+    PreviewLimits,
+    preview,
+)
 
 
 @pytest.fixture
@@ -159,3 +164,62 @@ def test_invalid_database_reports_backup_error(source):
     with pytest.raises(PreviewError, match="not a database") as error:
         preview(source, "SELECT 1;")
     assert error.value.stage == "backup"
+
+
+def test_orders_table_and_index_changes_and_keeps_index_terms(source):
+    with closing(sqlite3.connect(source)) as db:
+        db.executescript("""
+            CREATE TABLE obsolete (id INTEGER);
+            CREATE INDEX old_index ON notes(body);
+        """)
+    result = preview(source, """
+        CREATE TABLE "team's tags" (id INTEGER PRIMARY KEY, label TEXT UNIQUE);
+        DROP TABLE obsolete;
+        ALTER TABLE notes ADD COLUMN rank INTEGER DEFAULT 0;
+        DROP INDEX old_index;
+        CREATE INDEX ranked ON notes(lower(body), rank COLLATE BINARY DESC) WHERE rank > 0;
+    """)
+    assert result.ok
+    assert [(change.action, (change.after or change.before).name) for change in result.changes] == [
+        ("changed", "notes"), ("removed", "obsolete"), ("added", "team's tags"),
+        ("removed", "old_index"), ("added", "ranked"), ("added", "sqlite_autoindex_team's tags_1"),
+    ]
+    table = result.changes[0]
+    assert table.before.sql == "CREATE TABLE notes (body TEXT NOT NULL)"
+    assert "rank INTEGER DEFAULT 0" in table.after.sql
+    index = result.changes[-2].after.index
+    assert index.partial and not index.unique and index.origin == "c"
+    assert index.terms[0].expression and index.terms[0].column is None
+    assert index.terms[1].column == "rank" and index.terms[1].descending
+    implicit = result.changes[-1].after
+    assert implicit.sql is None
+    assert implicit.index.unique and implicit.index.origin == "u"
+    assert implicit.index.terms[0].column == "label"
+
+
+def test_rebuilt_index_and_without_rowid_primary_key(source):
+    with closing(sqlite3.connect(source)) as db:
+        db.execute("CREATE INDEX note_order ON notes(body ASC)")
+    result = preview(source, """
+        DROP INDEX note_order;
+        CREATE INDEX note_order ON notes(body DESC);
+        CREATE TABLE catalog (tag TEXT PRIMARY KEY) WITHOUT ROWID;
+    """)
+    changed, primary = [item for item in result.changes if item.after.kind == "index"]
+    assert changed.action == "changed" and changed.after.name == "note_order"
+    assert changed.after.index.terms[0].descending
+    assert primary.after.index.origin == "pk"
+    assert primary.after.index.terms[0].column == "tag"
+
+
+def test_reports_final_schema_not_intermediate_or_data_changes(source):
+    result = preview(source, """
+        INSERT INTO notes VALUES ('another note');
+        SAVEPOINT tentative;
+        CREATE TABLE discarded (id INTEGER);
+        ROLLBACK TO tentative;
+        RELEASE tentative;
+        CREATE VIEW note_bodies AS SELECT body FROM notes;
+    """)
+    assert result.ok
+    assert result.changes == ()

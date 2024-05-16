@@ -8,6 +8,8 @@ from itertools import islice
 from pathlib import Path
 from time import monotonic
 
+from ._schema import SchemaChange, diff, snapshot
+
 
 class PreviewError(Exception):
     """The preview could not complete the named stage."""
@@ -47,6 +49,7 @@ class ForeignKeyViolation:
 
 @dataclass(frozen=True)
 class PreviewResult:
+    changes: tuple[SchemaChange, ...]
     integrity_errors: tuple[str, ...]
     foreign_key_violations: tuple[ForeignKeyViolation, ...]
     checks_truncated: bool
@@ -69,8 +72,9 @@ _BLOCKED_ACTIONS = {
 }
 
 
-def _authorize(action: int, arg1: str | None, arg2: str | None,
-               schema: str | None, context: str | None) -> int:
+def _authorize(
+    action: int, arg1: str | None, arg2: str | None, schema: str | None, context: str | None
+) -> int:
     if action in _BLOCKED_ACTIONS or (
         action == sqlite3.SQLITE_FUNCTION and arg2 == "load_extension"
     ):
@@ -84,9 +88,12 @@ def _check_source(path: Path) -> None:
     with path.open("rb") as stream:
         header = stream.read(20)
     # A read-only WAL connection may otherwise create missing sidecar files.
-    if header.startswith(b"SQLite format 3\x00") and 2 in header[18:20]:
-        if not all(path.with_name(path.name + suffix).is_file() for suffix in ("-wal", "-shm")):
-            raise PreviewError("source", "WAL mode requires existing -wal and -shm sidecars")
+    if (
+        header.startswith(b"SQLite format 3\x00")
+        and 2 in header[18:20]
+        and not all(path.with_name(path.name + suffix).is_file() for suffix in ("-wal", "-shm"))
+    ):
+        raise PreviewError("source", "WAL mode requires existing -wal and -shm sidecars")
 
 
 def preview(source: str | Path, sql: str, *, limits: PreviewLimits = PreviewLimits()) -> PreviewResult:
@@ -105,6 +112,8 @@ def preview(source: str | Path, sql: str, *, limits: PreviewLimits = PreviewLimi
         check_deadline()
 
     try:
+        if sqlite3.sqlite_version_info < (3, 37, 0):
+            raise PreviewError(stage, "SQLite 3.37 or newer is required")
         if not isinstance(sql, str) or not sql.strip() or "\x00" in sql:
             raise PreviewError(stage, "migration must be non-empty text without NUL bytes")
         if len(sql) > limits.max_sql_bytes or len(sql.encode("utf-8")) > limits.max_sql_bytes:
@@ -131,7 +140,7 @@ def preview(source: str | Path, sql: str, *, limits: PreviewLimits = PreviewLimi
                 check_deadline()
                 original.backup(scratch, pages=64, progress=backup_progress, sleep=0.02)
 
-            stage = "migration"
+            stage = "snapshot_before"
             check_deadline()
             scratch.execute(f"PRAGMA main.max_page_count = {min(max_pages, 4294967294)}")
             scratch.execute("PRAGMA temp_store = MEMORY")
@@ -139,6 +148,10 @@ def preview(source: str | Path, sql: str, *, limits: PreviewLimits = PreviewLimi
             scratch.execute("PRAGMA foreign_keys = ON")
             scratch.setlimit(sqlite3.SQLITE_LIMIT_ATTACHED, 0)
             scratch.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, 16 * 1024 * 1024)
+            before = snapshot(scratch)
+            check_deadline()
+
+            stage = "migration"
             scratch.set_authorizer(_authorize)
             try:
                 scratch.executescript(sql)
@@ -147,6 +160,10 @@ def preview(source: str | Path, sql: str, *, limits: PreviewLimits = PreviewLimi
             check_deadline()
             if scratch.in_transaction:
                 raise PreviewError(stage, "migration left a transaction open")
+
+            stage = "snapshot_after"
+            changes = diff(before, snapshot(scratch))
+            check_deadline()
 
             stage = "checks"
             cap = limits.max_check_rows
@@ -159,9 +176,18 @@ def preview(source: str | Path, sql: str, *, limits: PreviewLimits = PreviewLimi
                 for row in islice(scratch.execute("PRAGMA main.foreign_key_check"), cap + 1)
             )
             check_deadline()
-            return PreviewResult(integrity[:cap], violations[:cap],
-                                 len(integrity) > cap or len(violations) > cap)
-    except (OSError, RuntimeError, UnicodeError, ValueError, sqlite3.Error) as exc:
+            return PreviewResult(
+                changes,
+                tuple(sorted(integrity[:cap])),
+                tuple(sorted(violations[:cap], key=_foreign_key_order)),
+                len(integrity) > cap or len(violations) > cap,
+            )
+    except (OSError, RuntimeError, ValueError, sqlite3.Error) as exc:
         if expired():
             raise PreviewError(stage, "preview time limit exceeded") from exc
         raise PreviewError(stage, str(exc)) from exc
+
+
+def _foreign_key_order(violation: ForeignKeyViolation) -> tuple:
+    rowid = violation.rowid
+    return violation.table, rowid is not None, rowid, violation.parent, violation.foreign_key
