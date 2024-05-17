@@ -1,0 +1,7 @@
+{
+  "title": "The final FK check clears an orphan after its parent is inserted",
+  "legacy_source": true,
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);", "CREATE TABLE players (team INTEGER REFERENCES teams(id));", "INSERT INTO players VALUES (9);"],
+  "migration": ["INSERT INTO teams VALUES (9);"],
+  "expect": {"changes": []}
+}
