@@ -1,0 +1,12 @@
+{
+  "title": "Column rename rewrites both an index key and its predicate",
+  "setup": ["CREATE TABLE items (code TEXT, active INTEGER);", "CREATE INDEX live_codes ON items(code) WHERE code IS NOT NULL;"],
+  "migration": ["ALTER TABLE items RENAME COLUMN code TO sku;"],
+  "expect": {"changes": [
+    ["changed", "table", "items", {"after": {"sql_contains": "sku TEXT"}}],
+    ["changed", "index", "live_codes", {
+      "before": {"sql_contains": "ON items(code) WHERE code IS NOT NULL", "index": {"unique": false, "origin": "c", "partial": true, "terms": [["code", false, false, "BINARY"]]}},
+      "after": {"sql_contains": "ON items(sku) WHERE sku IS NOT NULL", "index": {"unique": false, "origin": "c", "partial": true, "terms": [["sku", false, false, "BINARY"]]}}
+    }]
+  ]}
+}
