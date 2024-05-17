@@ -1,0 +1,8 @@
+{
+  "title": "A composite foreign key with one NULL part is not an orphan",
+  "setup": ["CREATE TABLE bins (zone TEXT, slot INTEGER, PRIMARY KEY (zone, slot)) WITHOUT ROWID;", "CREATE TABLE items (zone TEXT, slot INTEGER, FOREIGN KEY (zone, slot) REFERENCES bins);"],
+  "migration": ["INSERT INTO items VALUES ('north', NULL), (NULL, 3);", "ALTER TABLE items ADD COLUMN label TEXT;"],
+  "expect": {"changes": [
+    ["changed", "table", "items", {"after": {"sql_contains": "label TEXT"}}]
+  ]}
+}
