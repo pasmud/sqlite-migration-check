@@ -1,0 +1,7 @@
+{
+  "title": "Two references to one parent yield distinct foreign-key IDs",
+  "legacy_source": true,
+  "setup": ["CREATE TABLE people (id INTEGER PRIMARY KEY);", "CREATE TABLE shifts (lead INTEGER REFERENCES people(id), backup INTEGER REFERENCES people(id));", "INSERT INTO shifts VALUES (10, 20);"],
+  "migration": ["SELECT lead, backup FROM shifts;"],
+  "expect": {"changes": [], "foreign_keys": [["shifts", 1, "people", 0], ["shifts", 1, "people", 1]]}
+}
