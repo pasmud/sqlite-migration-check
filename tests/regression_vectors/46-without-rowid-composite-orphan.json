@@ -1,0 +1,7 @@
+{
+  "title": "A composite WITHOUT ROWID child reports a null rowid",
+  "legacy_source": true,
+  "setup": ["CREATE TABLE bins (zone TEXT, slot INTEGER, PRIMARY KEY (zone, slot)) WITHOUT ROWID;", "CREATE TABLE items (zone TEXT, slot INTEGER, sku TEXT, PRIMARY KEY (zone, sku), FOREIGN KEY (zone, slot) REFERENCES bins) WITHOUT ROWID;", "INSERT INTO bins VALUES ('north', 1);", "INSERT INTO items VALUES ('south', 1, 'sample');"],
+  "migration": ["SELECT sku FROM items;"],
+  "expect": {"changes": [], "foreign_keys": [["items", null, "bins", 0]]}
+}
