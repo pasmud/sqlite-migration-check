@@ -1,0 +1,12 @@
+{
+  "title": "Truncated foreign-key findings preserve the schema diff",
+  "legacy_source": true,
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);", "CREATE TABLE players (team INTEGER REFERENCES teams(id));", "INSERT INTO players VALUES (3), (4), (5);"],
+  "migration": ["ALTER TABLE players ADD COLUMN name TEXT;"],
+  "limits": {"max_check_rows": 1},
+  "expect": {
+    "changes": [["changed", "table", "players", {"after": {"sql_contains": "name TEXT"}}]],
+    "foreign_keys": [["players", 1, "teams", 0]],
+    "truncated": true
+  }
+}
