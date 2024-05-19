@@ -1,0 +1,8 @@
+{
+  "title": "A finding count equal to the limit is not truncated",
+  "legacy_source": true,
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);", "CREATE TABLE players (team INTEGER REFERENCES teams(id));", "INSERT INTO players VALUES (3), (4);"],
+  "migration": ["SELECT team FROM players;"],
+  "limits": {"max_check_rows": 2},
+  "expect": {"changes": [], "foreign_keys": [["players", 1, "teams", 0], ["players", 2, "teams", 0]]}
+}
