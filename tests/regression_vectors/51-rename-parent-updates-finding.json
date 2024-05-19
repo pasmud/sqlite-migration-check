@@ -1,0 +1,14 @@
+{
+  "title": "Renaming a parent updates the child DDL and orphan report",
+  "legacy_source": true,
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);", "CREATE TABLE players (team INTEGER REFERENCES teams(id));", "INSERT INTO players VALUES (9);"],
+  "migration": ["ALTER TABLE teams RENAME TO squads;"],
+  "expect": {
+    "changes": [
+      ["changed", "table", "players", {"before": {"sql_contains": "REFERENCES teams(id)"}, "after": {"sql_contains": "REFERENCES \"squads\"(id)"}}],
+      ["added", "table", "squads", {}],
+      ["removed", "table", "teams", {}]
+    ],
+    "foreign_keys": [["players", 1, "squads", 0]]
+  }
+}
