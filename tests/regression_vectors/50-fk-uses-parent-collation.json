@@ -1,0 +1,8 @@
+{
+  "title": "Foreign keys match text using the parent key collation",
+  "setup": ["CREATE TABLE teams (code TEXT PRIMARY KEY COLLATE NOCASE) WITHOUT ROWID;", "INSERT INTO teams VALUES ('RED');", "CREATE TABLE players (team TEXT REFERENCES teams);"],
+  "migration": ["INSERT INTO players VALUES ('red');", "CREATE INDEX by_team ON players(team);"],
+  "expect": {"changes": [
+    ["added", "index", "by_team", {"after": {"table": "players", "sql": "CREATE INDEX by_team ON players(team)"}}]
+  ]}
+}
