@@ -1,0 +1,9 @@
+{
+  "title": "Setting an optional foreign key to NULL repairs a legacy row",
+  "legacy_source": true,
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);", "CREATE TABLE players (team INTEGER REFERENCES teams(id));", "INSERT INTO players VALUES (9);"],
+  "migration": ["UPDATE players SET team = NULL;", "ALTER TABLE players ADD COLUMN active INTEGER NOT NULL DEFAULT 1;"],
+  "expect": {"changes": [
+    ["changed", "table", "players", {"after": {"sql_contains": "active INTEGER NOT NULL DEFAULT 1"}}]
+  ]}
+}
