@@ -1,0 +1,6 @@
+{
+  "title": "A nonunique parent key fails the final check, not CREATE TABLE",
+  "setup": ["CREATE TABLE teams (code TEXT);"],
+  "migration": ["CREATE TABLE players (team TEXT REFERENCES teams(code));"],
+  "expect": {"error": ["checks", "foreign key mismatch"]}
+}
