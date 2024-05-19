@@ -1,0 +1,13 @@
+{
+  "title": "Foreign-key findings sort by table and numeric signed rowid",
+  "legacy_source": true,
+  "setup": [
+    "CREATE TABLE teams (id INTEGER PRIMARY KEY);",
+    "CREATE TABLE alpha (team INTEGER REFERENCES teams(id));",
+    "CREATE TABLE zulu (team INTEGER REFERENCES teams(id));",
+    "INSERT INTO alpha(rowid, team) VALUES (10, 1), (2, 2), (-4, 3);",
+    "INSERT INTO zulu(rowid, team) VALUES (-20, 4);"
+  ],
+  "migration": ["SELECT 1;"],
+  "expect": {"changes": [], "foreign_keys": [["alpha", -4, "teams", 0], ["alpha", 2, "teams", 0], ["alpha", 10, "teams", 0], ["zulu", -20, "teams", 0]]}
+}
