@@ -1,0 +1,9 @@
+{
+  "title": "Creating a matching UNIQUE index repairs a parent-key mismatch",
+  "legacy_source": true,
+  "setup": ["CREATE TABLE teams (code TEXT);", "CREATE TABLE players (team TEXT REFERENCES teams(code));", "INSERT INTO teams VALUES ('red');", "INSERT INTO players VALUES ('red');"],
+  "migration": ["CREATE UNIQUE INDEX team_codes ON teams(code);"],
+  "expect": {"changes": [
+    ["added", "index", "team_codes", {"after": {"table": "teams", "index": {"unique": true, "origin": "c", "partial": false, "terms": [["code", false, false, "BINARY"]]}}}]
+  ]}
+}
