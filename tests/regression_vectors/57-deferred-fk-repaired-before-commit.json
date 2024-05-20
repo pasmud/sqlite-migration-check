@@ -1,0 +1,14 @@
+{
+  "title": "A deferred child can be inserted before its parent and commit",
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);"],
+  "migration": [
+    "BEGIN;",
+    "CREATE TABLE players (team INTEGER REFERENCES teams(id) DEFERRABLE INITIALLY DEFERRED);",
+    "INSERT INTO players VALUES (8);",
+    "INSERT INTO teams VALUES (8);",
+    "COMMIT;"
+  ],
+  "expect": {"changes": [
+    ["added", "table", "players", {"after": {"sql_contains": "DEFERRABLE INITIALLY DEFERRED"}}]
+  ]}
+}
