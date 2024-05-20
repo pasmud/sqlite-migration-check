@@ -1,0 +1,7 @@
+{
+  "title": "A missing parent table with a legacy child yields a finding",
+  "legacy_source": true,
+  "setup": ["CREATE TABLE players (team INTEGER REFERENCES retired_teams(id));", "INSERT INTO players VALUES (8);"],
+  "migration": ["SELECT team FROM players;"],
+  "expect": {"changes": [], "foreign_keys": [["players", 1, "retired_teams", 0]]}
+}
