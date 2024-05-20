@@ -41,7 +41,8 @@ def test_json_is_stable_and_reports_diff(inputs):
     assert source.read_bytes() == original
 
 
-def test_foreign_key_findings_return_report_and_status_one(inputs):
+@pytest.mark.parametrize("flags", [(), ("--fail-on-schema-change",)])
+def test_foreign_key_findings_return_report_and_status_one(inputs, flags):
     source, migration = inputs
     with closing(sqlite3.connect(source)) as db:
         db.executescript("""
@@ -51,7 +52,7 @@ def test_foreign_key_findings_return_report_and_status_one(inputs):
             INSERT INTO tags VALUES ('fake', 42);
         """)
     migration.write_text("CREATE INDEX note_index ON notes(body);", encoding="utf-8")
-    result = invoke(inputs, "--format", "json")
+    result = invoke(inputs, "--format", "json", *flags)
     assert result.returncode == 1 and result.stderr == ""
     report = json.loads(result.stdout)
     assert report["status"] == "check_failed" and report["error"] is None
@@ -61,10 +62,11 @@ def test_foreign_key_findings_return_report_and_status_one(inputs):
     ]
 
 
-def test_migration_error_does_not_report_partial_diff(inputs):
+@pytest.mark.parametrize("flags", [(), ("--fail-on-schema-change",)])
+def test_migration_error_does_not_report_partial_diff(inputs, flags):
     _, migration = inputs
     migration.write_text("DROP TABLE notes; SELECT * FROM absent;", encoding="utf-8")
-    result = invoke(inputs, "--format", "json")
+    result = invoke(inputs, "--format", "json", *flags)
     assert result.returncode == 2 and result.stderr == ""
     assert json.loads(result.stdout) == {
         "status": "error", "changes": None, "checks": None,
@@ -113,6 +115,48 @@ def test_view_and_trigger_review_is_opt_in(inputs):
     text = invoke(inputs, "--include-views-triggers")
     assert text.returncode == 0 and text.stderr == ""
     assert 'ADDED trigger "add_note" on "visible_notes"' in text.stdout
+
+
+def test_schema_gate_keeps_the_completed_report(inputs):
+    _, migration = inputs
+    migration.write_text("CREATE INDEX note_index ON notes(body);", encoding="utf-8")
+    normal = invoke(inputs, "--format", "json")
+    gated = invoke(inputs, "--format", "json", "--fail-on-schema-change")
+    assert normal.returncode == 0 and gated.returncode == 3 and gated.stderr == ""
+    default_report = json.loads(normal.stdout)
+    assert default_report["status"] == "ok" and default_report["changes"]
+    assert json.loads(gated.stdout) == {**default_report, "status": "schema_changed"}
+
+    text = invoke(inputs, "--fail-on-schema-change")
+    assert text.returncode == 3 and text.stderr == ""
+    assert 'ADDED index "note_index"' in text.stdout
+    assert text.stdout.endswith("Checks passed.\nSchema policy failed: expected no schema changes.\n")
+
+
+def test_schema_gate_respects_view_scope(inputs):
+    _, migration = inputs
+    migration.write_text("CREATE VIEW visible_notes AS SELECT body FROM notes;", encoding="utf-8")
+    default_scope = invoke(inputs, "--fail-on-schema-change")
+    expanded_scope = invoke(inputs, "--fail-on-schema-change", "--include-views-triggers")
+    assert default_scope.returncode == 0
+    assert expanded_scope.returncode == 3
+    assert 'ADDED view "visible_notes"' in expanded_scope.stdout
+
+
+def test_schema_gate_allows_row_changes_and_rolled_back_ddl(inputs):
+    source, migration = inputs
+    original = source.read_bytes()
+    migration.write_text("""
+        BEGIN;
+        CREATE TABLE scratch_notes (body TEXT);
+        ROLLBACK;
+        INSERT INTO notes VALUES ('synthetic note');
+    """, encoding="utf-8")
+    result = invoke(inputs, "--format", "json", "--fail-on-schema-change", "--include-views-triggers")
+    assert result.returncode == 0 and result.stderr == ""
+    report = json.loads(result.stdout)
+    assert report["status"] == "ok" and report["changes"] == []
+    assert source.read_bytes() == original
 
 
 def test_documented_examples_work_against_same_source(tmp_path):

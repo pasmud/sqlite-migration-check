@@ -65,6 +65,8 @@ def main(argv: list[str] | None = None) -> int:
                          metavar="SECONDS", help="preview time limit (default: %(default)s)")
     parser.add_argument("--include-views-triggers", action="store_true",
                          help="also compare main-schema views and triggers")
+    parser.add_argument("--fail-on-schema-change", action="store_true",
+                         help="exit 3 if checks pass but the schema diff is non-empty")
     args = parser.parse_args(argv)
 
     try:
@@ -86,9 +88,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error [{exc.stage}]: {json.dumps(str(exc))}", file=sys.stderr)
         return 2
 
+    if not result.ok:
+        status, exit_code = "check_failed", 1
+    elif args.fail_on_schema_change and result.changes:
+        status, exit_code = "schema_changed", 3
+    else:
+        status, exit_code = "ok", 0
+
     if args.format == "json":
         print(json.dumps({
-            "status": "ok" if result.ok else "check_failed",
+            "status": status,
             "changes": [asdict(change) for change in result.changes],
             "checks": {
                 "integrity_errors": result.integrity_errors,
@@ -99,7 +108,9 @@ def main(argv: list[str] | None = None) -> int:
         }, sort_keys=True))
     else:
         _print_text(result, include_views_triggers=args.include_views_triggers)
-    return 0 if result.ok else 1
+        if status == "schema_changed":
+            print("Schema policy failed: expected no schema changes.")
+    return exit_code
 
 
 if __name__ == "__main__":

@@ -28,7 +28,7 @@ in an activated virtual environment, then use it in place of `python -m sqlite_m
 
 ```text
 sqlite-migration-check DATABASE MIGRATION.sql [--format {text,json}] [--timeout SECONDS]
-                                             [--include-views-triggers]
+                                             [--include-views-triggers] [--fail-on-schema-change]
 ```
 
 - `DATABASE` must be an existing local regular file. `MIGRATION.sql` must be an explicitly
@@ -50,9 +50,15 @@ sqlite-migration-check DATABASE MIGRATION.sql [--format {text,json}] [--timeout 
 
 | Exit | JSON `status` | Meaning |
 | --- | --- | --- |
-| `0` | `ok` | The script completed and both checks passed. |
+| `0` | `ok` | The script completed and both checks passed. If the schema gate was enabled, the diff was empty. |
 | `1` | `check_failed` | The script completed, but at least one integrity or foreign-key finding was reported. The diff is included. |
 | `2` | `error` | The preview stopped at an input, source, backup, snapshot, migration, or check error. No partial diff is reported. |
+| `3` | `schema_changed` | With `--fail-on-schema-change`, the script completed and both checks passed, but the diff was non-empty. The full report is included. |
+
+Use `--fail-on-schema-change` in automation for migrations expected to change only data.
+Pair it with `--include-views-triggers` if view and trigger definitions must also stay
+unchanged. Errors and check findings take priority over the schema gate. It compares final
+definitions within the selected scope; it does not monitor intermediate DDL or row changes.
 
 Text mode puts completed reports on stdout and errors on stderr. JSON mode writes one object
 to stdout with `status`, `changes`, `checks`, and `error`. Each change has `action` and
