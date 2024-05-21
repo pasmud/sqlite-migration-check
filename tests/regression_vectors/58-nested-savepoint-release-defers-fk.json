@@ -1,0 +1,16 @@
+{
+  "title": "A nested savepoint can release before a deferred FK is repaired",
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);", "CREATE TABLE players (team INTEGER REFERENCES teams(id) DEFERRABLE INITIALLY DEFERRED);"],
+  "migration": [
+    "BEGIN;",
+    "SAVEPOINT inner_step;",
+    "INSERT INTO players VALUES (8);",
+    "CREATE INDEX by_team ON players(team);",
+    "RELEASE inner_step;",
+    "INSERT INTO teams VALUES (8);",
+    "COMMIT;"
+  ],
+  "expect": {"changes": [
+    ["added", "index", "by_team", {"after": {"table": "players", "sql": "CREATE INDEX by_team ON players(team)"}}]
+  ]}
+}
