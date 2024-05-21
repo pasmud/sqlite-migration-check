@@ -1,0 +1,6 @@
+{
+  "title": "Releasing the outermost savepoint checks its deferred foreign key",
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);", "CREATE TABLE players (team INTEGER REFERENCES teams(id) DEFERRABLE INITIALLY DEFERRED);"],
+  "migration": ["SAVEPOINT batch;", "ALTER TABLE players ADD COLUMN name TEXT;", "INSERT INTO players(team) VALUES (8);", "RELEASE batch;"],
+  "expect": {"error": ["migration", "FOREIGN KEY constraint failed"]}
+}
