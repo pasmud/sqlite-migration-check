@@ -3,6 +3,7 @@ import sqlite3
 import subprocess
 import sys
 from contextlib import closing
+from pathlib import Path
 
 import pytest
 
@@ -91,3 +92,25 @@ def test_text_preview_and_invalid_timeout(inputs):
     assert result.stdout == "No table or index changes.\nChecks passed.\n"
     result = invoke(inputs, "--timeout", "nan")
     assert result.returncode == 2 and "finite and positive" in result.stderr
+
+
+def test_documented_examples_work_against_same_source(tmp_path):
+    examples = Path(__file__).resolve().parents[1] / "examples"
+    database = tmp_path / "demo.sqlite"
+    command = [sys.executable, str(examples / "create_demo.py"), str(database)]
+    seeded = subprocess.run(command, capture_output=True, text=True, timeout=10, check=False)
+    assert seeded.returncode == 0, seeded.stderr
+    original = database.read_bytes()
+
+    success = invoke((database, examples / "add-status.sql"))
+    assert success.returncode == 0 and success.stderr == ""
+    assert 'CHANGED table "notes"' in success.stdout
+    assert 'ADDED index "notes_open_by_notebook"' in success.stdout
+
+    failure = invoke((database, examples / "fail-unique.sql"), "--format", "json")
+    assert failure.returncode == 2 and failure.stderr == ""
+    assert "UNIQUE constraint failed" in json.loads(failure.stdout)["error"]["message"]
+
+    repeated = subprocess.run(command, capture_output=True, text=True, timeout=10, check=False)
+    assert repeated.returncode == 2
+    assert database.read_bytes() == original

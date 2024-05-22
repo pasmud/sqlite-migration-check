@@ -68,13 +68,15 @@ _BLOCKED_ACTIONS = {
     sqlite3.SQLITE_CREATE_TEMP_TABLE,
     sqlite3.SQLITE_CREATE_TEMP_TRIGGER,
     sqlite3.SQLITE_CREATE_TEMP_VIEW,
-    sqlite3.SQLITE_PRAGMA,
 }
 
 
 def _authorize(
     action: int, arg1: str | None, arg2: str | None, schema: str | None, context: str | None
 ) -> int:
+    # ALTER TABLE ADD COLUMN uses this read-only pragma to validate new CHECK constraints.
+    if action == sqlite3.SQLITE_PRAGMA and (arg1 or "").lower() != "quick_check":
+        return sqlite3.SQLITE_DENY
     if action in _BLOCKED_ACTIONS or (
         action == sqlite3.SQLITE_FUNCTION and arg2 == "load_extension"
     ):
