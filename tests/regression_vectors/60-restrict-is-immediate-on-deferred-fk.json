@@ -1,0 +1,6 @@
+{
+  "title": "ON DELETE RESTRICT is immediate even on a deferred foreign key",
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);", "CREATE TABLE players (team INTEGER REFERENCES teams(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED);", "INSERT INTO teams VALUES (8);", "INSERT INTO players VALUES (8);"],
+  "migration": ["BEGIN;", "DELETE FROM teams;", "DELETE FROM players;", "COMMIT;"],
+  "expect": {"error": ["migration", "FOREIGN KEY constraint failed"]}
+}
