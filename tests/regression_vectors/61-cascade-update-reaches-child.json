@@ -1,0 +1,14 @@
+{
+  "title": "A cascading primary key update reaches the constrained child",
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);", "CREATE TABLE players (team INTEGER CHECK (team > 0) REFERENCES teams(id) ON UPDATE CASCADE);", "INSERT INTO teams VALUES (8);", "INSERT INTO players VALUES (8);"],
+  "migration": [
+    "UPDATE teams SET id = 9 WHERE id = 8;",
+    "CREATE TABLE probe (ok INTEGER CHECK (ok = 1));",
+    "INSERT INTO probe SELECT count(*) FROM players WHERE team = 9;",
+    "DROP TABLE probe;",
+    "ALTER TABLE players ADD COLUMN number INTEGER;"
+  ],
+  "expect": {"changes": [
+    ["changed", "table", "players", {"after": {"sql_contains": "number INTEGER"}}]
+  ]}
+}
