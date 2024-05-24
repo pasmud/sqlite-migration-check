@@ -1,0 +1,6 @@
+{
+  "title": "ON DELETE SET NULL still obeys a child's NOT NULL constraint",
+  "setup": ["CREATE TABLE teams (id INTEGER PRIMARY KEY);", "CREATE TABLE players (team INTEGER NOT NULL REFERENCES teams(id) ON DELETE SET NULL);", "INSERT INTO teams VALUES (8);", "INSERT INTO players VALUES (8);"],
+  "migration": ["DELETE FROM teams WHERE id = 8;"],
+  "expect": {"error": ["migration", "NOT NULL constraint failed: players.team"]}
+}
