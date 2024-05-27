@@ -21,6 +21,9 @@ The first preview reports a changed `notes` table and an added `notes_open_by_no
 index, then exits `0`. The second preview exits `2` with a migration error because two
 fake notes share the same notebook. Both previews start from the same unmodified database.
 
+To install the `sqlite-migration-check` command from the checkout, run `python -m pip install .`
+in an activated virtual environment, then use it in place of `python -m sqlite_migration_check`.
+
 ## Inputs and reports
 
 ```text
@@ -93,3 +96,15 @@ else:
   exported by the app. If a rollback-mode database is locked, retry when the writer is idle.
 - Reports can contain schema definitions and diagnostic names. Use fake development data
   when sharing reports. A passing preview checks only that particular snapshot and script.
+
+## Development
+
+From an activated virtual environment in the checkout:
+
+```sh
+python -m pip install '.[test]'
+python -m ruff check .
+python -m pytest -q
+```
+
+CI runs these checks for pushes and pull requests on Python 3.11 and 3.14.

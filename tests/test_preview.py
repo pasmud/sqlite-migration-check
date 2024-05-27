@@ -70,6 +70,21 @@ def test_existing_foreign_key_problem_is_reported(source):
     assert result.foreign_key_violations == (ForeignKeyViolation("tags", 1, "accounts", 0),)
 
 
+def test_existing_check_constraint_violation_is_reported_by_integrity_check(source):
+    with closing(sqlite3.connect(source)) as db:
+        db.executescript("""
+            CREATE TABLE counter (value INTEGER CHECK (value >= 0));
+            PRAGMA ignore_check_constraints = ON;
+            INSERT INTO counter VALUES (-1);
+        """)
+    original = source.read_bytes()
+    result = preview(source, "SELECT 1;")
+    assert not result.ok
+    assert any("CHECK constraint failed in counter" in error for error in result.integrity_errors)
+    assert result.foreign_key_violations == ()
+    assert source.read_bytes() == original
+
+
 @pytest.mark.parametrize("statement", ["ATTACH DATABASE 'other.sqlite' AS other", "VACUUM INTO 'other.sqlite'"])
 def test_migration_cannot_create_other_database_files(source, monkeypatch, statement):
     monkeypatch.chdir(source.parent)
