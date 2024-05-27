@@ -1,0 +1,12 @@
+{
+  "title": "A new trigger aborts the writes that violate its business rule",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE scores (points INTEGER);", "INSERT INTO scores VALUES (5);"],
+  "migration": [
+    "BEGIN;",
+    "CREATE TRIGGER nonnegative BEFORE UPDATE ON scores WHEN NEW.points < 0 BEGIN SELECT RAISE(ABORT, 'negative points'); END;",
+    "UPDATE scores SET points = -1;",
+    "COMMIT;"
+  ],
+  "expect": {"error": ["migration", "negative points"]}
+}
