@@ -1,0 +1,13 @@
+{
+  "title": "Rebuilding with NOCASE UNIQUE rejects formerly distinct values",
+  "setup": ["CREATE TABLE labels (name TEXT UNIQUE);", "INSERT INTO labels VALUES ('Red'), ('red');"],
+  "migration": [
+    "BEGIN;",
+    "CREATE TABLE next_labels (name TEXT COLLATE NOCASE UNIQUE);",
+    "INSERT INTO next_labels SELECT name FROM labels;",
+    "DROP TABLE labels;",
+    "ALTER TABLE next_labels RENAME TO labels;",
+    "COMMIT;"
+  ],
+  "expect": {"error": ["migration", "UNIQUE constraint failed: next_labels.name"]}
+}
