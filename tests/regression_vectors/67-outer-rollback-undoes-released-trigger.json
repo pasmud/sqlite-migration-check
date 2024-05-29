@@ -1,0 +1,17 @@
+{
+  "title": "Outer rollback restores a trigger replaced in a released savepoint",
+  "include_views_triggers": true,
+  "setup": ["CREATE TABLE notes (body TEXT);", "CREATE TRIGGER audit AFTER INSERT ON notes BEGIN SELECT NEW.body; END;"],
+  "migration": [
+    "BEGIN;",
+    "SAVEPOINT swap;",
+    "DROP TRIGGER audit;",
+    "CREATE TRIGGER audit AFTER INSERT ON notes BEGIN SELECT upper(NEW.body); END;",
+    "RELEASE swap;",
+    "ROLLBACK;",
+    "CREATE VIEW inbox AS SELECT body FROM notes;"
+  ],
+  "expect": {"changes": [
+    ["added", "view", "inbox", {"after": {"sql_contains": "SELECT body FROM notes"}}]
+  ]}
+}
