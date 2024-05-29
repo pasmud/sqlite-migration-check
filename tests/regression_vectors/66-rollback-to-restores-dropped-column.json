@@ -1,0 +1,17 @@
+{
+  "title": "ROLLBACK TO restores a dropped column before a committed ALTER",
+  "setup": ["CREATE TABLE notes (body TEXT, tag TEXT);", "INSERT INTO notes VALUES ('demo', 'kept');"],
+  "migration": [
+    "SAVEPOINT revise;",
+    "ALTER TABLE notes DROP COLUMN tag;",
+    "ROLLBACK TO revise;",
+    "ALTER TABLE notes ADD COLUMN pinned INTEGER DEFAULT 0;",
+    "CREATE TABLE probe (ok INTEGER CHECK (ok = 1));",
+    "INSERT INTO probe SELECT count(*) FROM notes WHERE tag = 'kept' AND pinned = 0;",
+    "DROP TABLE probe;",
+    "RELEASE revise;"
+  ],
+  "expect": {"changes": [
+    ["changed", "table", "notes", {"before": {"sql": "CREATE TABLE notes (body TEXT, tag TEXT)"}, "after": {"sql": "CREATE TABLE notes (body TEXT, tag TEXT, pinned INTEGER DEFAULT 0)"}}]
+  ]}
+}
