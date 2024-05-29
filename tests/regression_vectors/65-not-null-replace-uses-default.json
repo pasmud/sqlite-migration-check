@@ -1,0 +1,11 @@
+{
+  "title": "NOT NULL ON CONFLICT REPLACE uses the declared default",
+  "setup": ["CREATE TABLE tasks (state TEXT NOT NULL ON CONFLICT REPLACE DEFAULT 'open');"],
+  "migration": [
+    "INSERT INTO tasks VALUES (NULL);",
+    "CREATE TABLE probe (ok INTEGER CHECK (ok = 1));",
+    "INSERT INTO probe SELECT count(*) FROM tasks WHERE state = 'open';",
+    "DROP TABLE probe;"
+  ],
+  "expect": {"changes": []}
+}
