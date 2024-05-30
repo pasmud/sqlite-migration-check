@@ -14,12 +14,20 @@ library. From the checkout, run:
 python examples/create_demo.py demo.sqlite
 python -m sqlite_migration_check demo.sqlite examples/add-status.sql
 python -m sqlite_migration_check demo.sqlite examples/fail-unique.sql --format json
+python -m sqlite_migration_check demo.sqlite examples/fail-deferred-fk.sql --format json
 ```
 
 The first command creates a new fake database and refuses to overwrite an existing path.
 The first preview reports a changed `notes` table and an added `notes_open_by_notebook`
 index, then exits `0`. The second preview exits `2` with a migration error because two
-fake notes share the same notebook. Both previews start from the same unmodified database.
+fake notes share the same notebook.
+
+The third preview shows why a migration can fail after its statements appear to succeed:
+the deferred foreign key allows inserting a reminder for a missing note inside the
+transaction, but SQLite rejects `COMMIT`. The preview exits `2` at the `migration` stage,
+discards the scratch transaction, and reports no partial diff. If you copy the script
+and replace its final `COMMIT;` with `ROLLBACK;`, the preview passes with an empty diff.
+All previews start from the same unmodified database.
 
 To install the `sqlite-migration-check` command from the checkout, run `python -m pip install .`
 in an activated virtual environment, then use it in place of `python -m sqlite_migration_check`.

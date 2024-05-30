@@ -159,12 +159,18 @@ def test_schema_gate_allows_row_changes_and_rolled_back_ddl(inputs):
     assert source.read_bytes() == original
 
 
-def test_documented_examples_work_against_same_source(tmp_path):
+@pytest.fixture
+def demo(tmp_path):
     examples = Path(__file__).resolve().parents[1] / "examples"
     database = tmp_path / "demo.sqlite"
     command = [sys.executable, str(examples / "create_demo.py"), str(database)]
     seeded = subprocess.run(command, capture_output=True, text=True, timeout=10, check=False)
     assert seeded.returncode == 0, seeded.stderr
+    return database, examples, command
+
+
+def test_documented_examples_work_against_same_source(demo):
+    database, examples, command = demo
     original = database.read_bytes()
 
     success = invoke((database, examples / "add-status.sql"))
@@ -178,4 +184,30 @@ def test_documented_examples_work_against_same_source(tmp_path):
 
     repeated = subprocess.run(command, capture_output=True, text=True, timeout=10, check=False)
     assert repeated.returncode == 2
+    assert database.read_bytes() == original
+
+
+def test_deferred_fk_example_fails_at_commit_and_accepts_rollback(demo, tmp_path):
+    database, examples, _ = demo
+    original = database.read_bytes()
+    migration = examples / "fail-deferred-fk.sql"
+
+    failure = invoke((database, migration), "--format", "json")
+    assert failure.returncode == 2 and failure.stderr == ""
+    report = json.loads(failure.stdout)
+    assert report["status"] == "error"
+    assert report["changes"] is None and report["checks"] is None
+    assert report["error"]["stage"] == "migration"
+    assert "FOREIGN KEY constraint failed" in report["error"]["message"]
+    assert database.read_bytes() == original
+
+    # Executing every statement before the commit succeeds, and rollback discards the DDL and row.
+    rollback = tmp_path / "roll-back-reminders.sql"
+    script = migration.read_text(encoding="utf-8").rstrip()
+    assert script.endswith("COMMIT;")
+    rollback.write_text(script.removesuffix("COMMIT;") + "ROLLBACK;\n", encoding="utf-8")
+    result = invoke((database, rollback), "--format", "json")
+    assert result.returncode == 0 and result.stderr == ""
+    report = json.loads(result.stdout)
+    assert report["status"] == "ok" and report["changes"] == []
     assert database.read_bytes() == original
