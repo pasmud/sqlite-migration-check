@@ -1,0 +1,6 @@
+{
+  "title": "Copying nonnumeric text into a STRICT integer column fails",
+  "setup": ["CREATE TABLE totals (amount INTEGER);", "INSERT INTO totals VALUES ('pending');"],
+  "migration": ["CREATE TABLE next_totals (amount INTEGER) STRICT;", "INSERT INTO next_totals SELECT amount FROM totals;"],
+  "expect": {"error": ["migration", "cannot store TEXT value in INTEGER column"]}
+}
