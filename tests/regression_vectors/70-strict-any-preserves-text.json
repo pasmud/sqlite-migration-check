@@ -1,0 +1,16 @@
+{
+  "title": "STRICT ANY preserves numeric-looking text during a rebuild",
+  "setup": ["CREATE TABLE codes (value TEXT);", "INSERT INTO codes VALUES ('007');"],
+  "migration": [
+    "CREATE TABLE next_codes (value ANY CHECK (typeof(value) = 'text')) STRICT;",
+    "INSERT INTO next_codes SELECT value FROM codes;",
+    "DROP TABLE codes;",
+    "ALTER TABLE next_codes RENAME TO codes;",
+    "CREATE TABLE probe (ok INTEGER CHECK (ok = 1));",
+    "INSERT INTO probe SELECT count(*) FROM codes WHERE value = '007';",
+    "DROP TABLE probe;"
+  ],
+  "expect": {"changes": [
+    ["changed", "table", "codes", {"before": {"sql": "CREATE TABLE codes (value TEXT)"}, "after": {"sql_contains": "value ANY CHECK (typeof(value) = 'text')) STRICT"}}]
+  ]}
+}
