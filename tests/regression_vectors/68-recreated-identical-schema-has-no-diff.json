@@ -1,0 +1,12 @@
+{
+  "title": "Recreating identical definitions yields no final schema diff",
+  "setup": ["CREATE TABLE labels (name TEXT UNIQUE);", "INSERT INTO labels VALUES ('old');"],
+  "migration": [
+    "BEGIN;",
+    "DROP TABLE labels;",
+    "CREATE TABLE labels (name TEXT UNIQUE);",
+    "INSERT INTO labels VALUES ('new');",
+    "COMMIT;"
+  ],
+  "expect": {"changes": []}
+}
